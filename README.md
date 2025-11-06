@@ -73,13 +73,11 @@ docker run -d \
 You can configure the service discovery tool using a `configuration.yaml` file in the project root. The following options are available:
 
 - `CaddyAdminUrl`: The URL of the Caddy Admin API. Default is `http://localhost:2019`.
-- `ScheduleInterval`: The interval (in seconds) at which the tool checks for changes in Docker containers. Default is `5`.
 
 **Example:**
 
 ```yaml
 CaddyAdminUrl: "http://localhost:2019"
-ScheduleInterval: 5 # provide desired interval in seconds, default value is 5 seconds
 ```
 
 This allows you to easily adjust the connection to your Caddy instance and how frequently the service discovery runs, without changing the code.

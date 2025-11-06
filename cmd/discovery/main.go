@@ -2,42 +2,41 @@ package main
 
 import (
 	"errors"
-	"github.com/jaku01/caddyservicediscovery/internal/scheduler"
-	"github.com/spf13/viper"
 	"log"
+
+	"github.com/jaku01/caddyservicediscovery/internal/manager"
+	"github.com/spf13/viper"
 )
 
 func main() {
-
-	caddyAdminUrl, scheduleInterval, err := loadConfiguration()
+	caddyAdminUrl, err := loadConfiguration()
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Configuration: CaddyAdminUrl=%s, ScheduleInterval=%d", caddyAdminUrl, scheduleInterval)
+	log.Printf("Configuration: CaddyAdminUrl=%s", caddyAdminUrl)
 
-	err = scheduler.StartScheduleDiscovery(caddyAdminUrl, scheduleInterval)
+	err = manager.StartServiceDiscovery(caddyAdminUrl)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func loadConfiguration() (string, int, error) {
+func loadConfiguration() (string, error) {
 	viper.SetConfigName("configuration")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 
 	viper.SetDefault("CaddyAdminUrl", "http://localhost:2019")
-	viper.SetDefault("ScheduleInterval", 5)
 
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {
-			return "", -1, err
+			return "", err
 		}
 		log.Println("No configuration file found, using default values")
 	} else {
 		log.Println("Configuration file loaded successfully")
 	}
 
-	return viper.GetString("CaddyAdminUrl"), viper.GetInt("ScheduleInterval"), nil
+	return viper.GetString("CaddyAdminUrl"), nil
 }

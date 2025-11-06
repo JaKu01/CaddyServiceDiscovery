@@ -58,7 +58,7 @@ func (c *Connector) CreateCaddyConfig() error {
 	return nil
 }
 
-func (c *Connector) ReplaceServers(servers map[string]Server) error {
+func (c *Connector) SetServers(servers map[string]Server) error {
 	body, err := json.Marshal(servers)
 	if err != nil {
 		return err

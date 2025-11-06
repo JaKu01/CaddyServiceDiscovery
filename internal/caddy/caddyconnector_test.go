@@ -141,7 +141,7 @@ func TestConnector_ReplaceServers(t *testing.T) {
 	serverMap := make(map[string]Server)
 	serverMap["exampleServer"] = server
 
-	err := connector.ReplaceServers(serverMap)
+	err := connector.SetServers(serverMap)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -154,7 +154,7 @@ func TestConnector_ReplaceServersFailsBecauseOfInvalidUrl(t *testing.T) {
 	serverMap := make(map[string]Server)
 	serverMap["exampleServer"] = server
 
-	err := connector.ReplaceServers(serverMap)
+	err := connector.SetServers(serverMap)
 	if err == nil {
 		t.Errorf("Expected error, got none")
 	}

@@ -1,2 +1,1 @@
 CaddyAdminUrl: "http://localhost:2019"
-ScheduleInterval: 10 # provide desired interval in seconds, default value is 5 seconds
