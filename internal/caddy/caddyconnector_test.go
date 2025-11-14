@@ -3,11 +3,12 @@ package caddy
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
 func TestConnector_GetCaddyConfig(t *testing.T) {
-	mockResponse := "{\"apps\":{\"http\":{\"servers\":{\"exampleServer\":{\"listen\":[\":443\"],\"routes\":[{\"handle\":[{\"handler\":\"static_response\",\"body\":\"Test\"}]}]}}}}}\n"
+	mockResponse := "{\"apps\":{\"http\":{\"servers\":{\"exampleServer\":{\"listen\":[\":443\"],\"routes\":[{\"handle\":[{\"handler\":\"reverse_proxy\",\"upstreams\":[{\"dial\":\":8080\"}]}]}]}}}}}\n"
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/config/" && r.Method == http.MethodGet {
@@ -40,11 +41,14 @@ func TestConnector_GetCaddyConfig(t *testing.T) {
 	if len(server.Routes[0].Handle) != 1 {
 		t.Errorf("Expected 1 handle, got %d", len(server.Routes[0].Handle))
 	}
-	if server.Routes[0].Handle[0].Handler != "static_response" {
-		t.Errorf("Expected handler static_response, got %s", server.Routes[0].Handle[0].Handler)
+	if server.Routes[0].Handle[0].Handler != "reverse_proxy" {
+		t.Errorf("Expected handler reverse_proxy, got %s", server.Routes[0].Handle[0].Handler)
 	}
-	if server.Routes[0].Handle[0].Body != "Test" {
-		t.Errorf("Expected body Test, got %s", server.Routes[0].Handle[0].Body)
+	if len(server.Routes[0].Handle[0].Upstreams) != 1 {
+		t.Errorf("Expected 1 upstream, got %d", len(server.Routes[0].Handle[0].Upstreams))
+	}
+	if server.Routes[0].Handle[0].Upstreams[0].Dial != ":8080" {
+		t.Errorf("Expected body Test, got %s", server.Routes[0].Handle[0].Upstreams[0].Dial)
 	}
 }
 
@@ -125,9 +129,9 @@ func TestConnector_CreateCaddyConfigReturnsError(t *testing.T) {
 	}
 }
 
-func TestConnector_ReplaceServers(t *testing.T) {
+func TestConnector_ReplaceRoutes(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/config/apps/http/servers" && r.Method == http.MethodPost {
+		if r.URL.Path == "/config/apps/http/servers/srv0/routes/" && r.Method == http.MethodPatch {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
@@ -137,48 +141,60 @@ func TestConnector_ReplaceServers(t *testing.T) {
 
 	connector := NewConnector(mockServer.URL)
 
-	server := NewReverseProxyServer(8080, "127.0.0.1:9000")
-	serverMap := make(map[string]Server)
-	serverMap["exampleServer"] = server
+	route := NewReverseProxyRoute("subdomain.example.com", 8080)
+	routes := []Route{route}
 
-	err := connector.SetServers(serverMap)
+	err := connector.SetRoutes(routes)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 }
 
-func TestConnector_ReplaceServersFailsBecauseOfInvalidUrl(t *testing.T) {
+func TestConnector_ReplaceRouteFailsBecauseOfInvalidUrl(t *testing.T) {
 	connector := NewConnector("invalid-url")
 
-	server := NewReverseProxyServer(8080, "127.0.0.1:9000")
-	serverMap := make(map[string]Server)
-	serverMap["exampleServer"] = server
+	route := NewReverseProxyRoute("subdomain.example.com", 8080)
+	routes := []Route{route}
 
-	err := connector.SetServers(serverMap)
+	err := connector.SetRoutes(routes)
 	if err == nil {
 		t.Errorf("Expected error, got none")
 	}
 }
 
-func TestNewReverseProxyServer(t *testing.T) {
-	port := 8080
-	upstream := "127.0.0.1:9000"
-	server := NewReverseProxyServer(port, upstream)
+func TestNewReverseProxyRoute(t *testing.T) {
+	upstreamPort := 8080
+	incomingDomain := "subdomain.example.com"
+	route := NewReverseProxyRoute(incomingDomain, upstreamPort)
 
-	if len(server.Listen) != 1 || server.Listen[0] != ":8080" {
-		t.Errorf("Expected listen port ':8080', got: %v", server.Listen)
+	if len(route.Match) != 1 {
+		t.Errorf("Expected 1 route match, got: %d", len(route.Match))
 	}
-	if len(server.Routes) != 1 {
-		t.Errorf("Expected 1 route, got: %d", len(server.Routes))
+	if len(route.Match[0].Host) != 1 {
+		t.Errorf("Expected 1 route match host, got: %d", len(route.Match[0].Host))
 	}
-	if len(server.Routes[0].Handle) != 1 {
-		t.Errorf("Expected 1 handler, got: %d", len(server.Routes[0].Handle))
+	if route.Match[0].Host[0] != incomingDomain {
+		t.Errorf("Expected '%s' as domain, got: %s", incomingDomain, route.Match[0].Host[0])
 	}
-	handler := server.Routes[0].Handle[0]
-	if handler.Handler != "reverse_proxy" {
-		t.Errorf("Expected handler 'reverse_proxy', got: %s", handler.Handler)
+	if len(route.Handle) != 1 {
+		t.Errorf("Expected 1 route match handle, got: %d", len(route.Handle))
 	}
-	if len(handler.Upstreams) != 1 || handler.Upstreams[0].Dial != upstream {
-		t.Errorf("Expected upstream '%s', got: %v", upstream, handler.Upstreams)
+	if route.Handle[0].Handler != "subroute" {
+		t.Errorf("Expected handler subroute, got %s", route.Handle[0].Handler)
+	}
+	if len(route.Handle[0].Routes) != 1 {
+		t.Errorf("Expected 1 route match handle, got %d", len(route.Handle[0].Routes))
+	}
+	if len(route.Handle[0].Routes[0].Handle) != 1 {
+		t.Errorf("Expected 1 route match handle, got %d", len(route.Handle[0].Routes[0].Handle))
+	}
+	if route.Handle[0].Routes[0].Handle[0].Handler != "reverse_proxy" {
+		t.Errorf("Expected handler reverse_proxy, got %s", route.Handle[0].Routes[0].Handle[0].Handler)
+	}
+	if len(route.Handle[0].Routes[0].Handle[0].Upstreams) != 1 {
+		t.Errorf("Expected 1 upstream, got %d", len(route.Handle[0].Routes[0].Handle[0].Upstreams))
+	}
+	if route.Handle[0].Routes[0].Handle[0].Upstreams[0].Dial != ":"+strconv.Itoa(upstreamPort) {
+		t.Errorf("Expected handler reverse_proxy, got %s", route.Handle[0].Routes[0].Handle[0].Upstreams[0].Dial)
 	}
 }

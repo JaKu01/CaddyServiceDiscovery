@@ -13,8 +13,8 @@ This project provides automated service discovery for [Caddy](https://caddyserve
 
 1. The scheduler periodically queries Docker for containers with the label `caddy.service.discovery.active=true`.
 2. For each matching container, it reads the labels:
-    - `caddy.service.discovery.port`: The port to expose via Caddy.
-    - `caddy.service.discovery.upstream`: The upstream address for reverse proxying.
+    - `caddy.service.discovery.domain`: The domain to expose via Caddy.
+    - `caddy.service.discovery.port`: The port the docker container listens on.
 3. It generates a Caddy server configuration for each container.
 4. If the set of active containers changes, it updates the Caddy configuration via the Caddy Admin API.
 
@@ -53,8 +53,8 @@ By default, it connects to `http://localhost:2019` for the Caddy Admin API.
 When running your Docker containers, add the following labels:
 
 - `caddy.service.discovery.active=true`
-- `caddy.service.discovery.port=<port>` (the port to expose)
-- `caddy.service.discovery.upstream=<host:port>` (the upstream address)
+- `caddy.service.discovery.port=<port>` (the port the container is listening on)
+- `caddy.service.discovery.domain=<domain>` (the domain to expose the port on)
 
 **Example:**
 
@@ -62,7 +62,7 @@ When running your Docker containers, add the following labels:
 docker run -d \
   -p 7123:7123 \
   --name my-service \
-  --label caddy.service.discovery.upstream=localhost:7123 \
+  --label caddy.service.discovery.domain=subdomain.example.com \
   --label caddy.service.discovery.port=3080 \
   --label caddy.service.discovery.active=true \
   my-image:latest

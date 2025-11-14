@@ -22,17 +22,17 @@ type Server struct {
 }
 
 type Route struct {
-	Match  []Match   `json:"match,omitempty"`
-	Handle []Handler `json:"handle"`
+	Match  []Match  `json:"match,omitempty"`
+	Handle []Handle `json:"handle"`
 }
 
 type Match struct {
 	Host []string `json:"host,omitempty"`
 }
 
-type Handler struct {
+type Handle struct {
 	Handler   string     `json:"handler"`
-	Body      string     `json:"body,omitempty"`
+	Routes    []Route    `json:"routes,omitempty"`
 	Upstreams []Upstream `json:"upstreams,omitempty"`
 }
 
