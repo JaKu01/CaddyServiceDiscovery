@@ -5,17 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
-	"strconv"
 )
 
 type Connector struct {
-	Url string
+	Url       string
+	TlsConfig TLSConfig
 }
 
-func NewConnector(url string) *Connector {
+func NewConnector(url string, tlsConfig TLSConfig) *Connector {
 	return &Connector{
-		Url: url,
+		Url:       url,
+		TlsConfig: tlsConfig,
 	}
 }
 
@@ -31,7 +33,7 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// if content is "null", return nil
+	// if the content is "null", return nil
 	if len(responseContent) == 0 || string(responseContent) == "null\n" {
 		return nil, fmt.Errorf("no caddy config found")
 	}
@@ -46,10 +48,28 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 func (c *Connector) CreateCaddyConfig() error {
 	config := Config{}
 	config.Apps.HTTP.Servers = make(map[string]Server, 1)
-	config.Apps.HTTP.Servers["srv0"] = Server{
+
+	server := Server{
 		Listen: []string{":443", ":80"},
 		Routes: []Route{},
 	}
+
+	if c.TlsConfig.Manual {
+		slog.Info("Using manual TLS configuration",
+			"certFilePath", c.TlsConfig.CertFilePath,
+			"keyFilePath", c.TlsConfig.KeyFilePath)
+		server.TLSConnectionPolicies = []TLSConnectionPolicy{
+			{
+				Certificate: &Certificate{
+					CertificateFile: c.TlsConfig.CertFilePath,
+					KeyFile:         c.TlsConfig.KeyFilePath,
+				},
+			},
+		}
+	}
+
+	config.Apps.HTTP.Servers["srv0"] = server
+
 	body, err := json.Marshal(config)
 	if err != nil {
 		return err
@@ -81,14 +101,11 @@ func (c *Connector) SetRoutes(routes []Route) error {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println(resp.Status, string(respBody))
-
 	return nil
 }
 
 // NewReverseProxyRoute creates a reverse proxy forwarding accesses to incomingDomain to upstreamPort
-func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
+func NewReverseProxyRoute(incomingDomain string, upstream string) Route {
 	return Route{
 		Handle: []Handle{
 			{
@@ -101,7 +118,7 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 								Handler: "reverse_proxy",
 								Upstreams: []Upstream{
 									{
-										Dial: ":" + strconv.Itoa(upstreamPort),
+										Dial: upstream,
 									},
 								},
 							},
@@ -116,4 +133,30 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 			},
 		},
 	}
+}
+
+func New404FallbackRoute() Route {
+	return Route{
+		Match: []Match{{}}, // match everything
+		Handle: []Handle{
+			{
+				Handler:    "static_response",
+				StatusCode: 404,
+				Body:       "Not Found",
+			},
+		},
+	}
+}
+
+func (c *Connector) PrintCurrentConfig() error {
+	config, err := c.GetCaddyConfig()
+	if err != nil {
+		return err
+	}
+	converted, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Config: %s\n", string(converted))
+	return nil
 }
