@@ -4,10 +4,10 @@ package main
 
 import (
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
-	"github.com/jaku01/caddyservicediscovery/internal/dockerconnector"
+	"github.com/jaku01/caddyservicediscovery/internal/docker"
 )
 
-// newConnector returns a Docker connector when built with the 'docker' tag.
+// Returns a Docker connector when built with the 'docker' tag.
 func newProviderConnector() (caddy.ProviderConnector, error) {
-	return dockerconnector.NewDockerConnector()
+	return docker.NewDockerConnector()
 }

@@ -1,4 +1,4 @@
-package dockerconnector
+package docker
 
 import (
 	"context"
