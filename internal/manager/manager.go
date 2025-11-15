@@ -7,11 +7,10 @@ import (
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
 )
 
-func StartServiceDiscovery(caddyAdminUrl string, providerConnector caddy.ProviderConnector) error {
-	caddyConnector := caddy.NewConnector(caddyAdminUrl)
+func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector caddy.ProviderConnector) error {
 
 	slog.Info("Starting manager for service discovery")
-	slog.Info("Using caddy admin api", "url", caddyAdminUrl)
+	slog.Info("Using caddy admin api", "url", caddyConnector.Url)
 
 	err := createCaddyConfigIfMissing(caddyConnector)
 	if err != nil {

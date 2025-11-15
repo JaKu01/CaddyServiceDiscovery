@@ -19,8 +19,18 @@ type Config struct {
 }
 
 type Server struct {
-	Listen []string `json:"listen"`
-	Routes []Route  `json:"routes"`
+	Listen                []string              `json:"listen"`
+	Routes                []Route               `json:"routes"`
+	TLSConnectionPolicies []TLSConnectionPolicy `json:"tls_connection_policies,omitempty"`
+}
+
+type TLSConnectionPolicy struct {
+	Certificate *Certificate `json:"certificate,omitempty"`
+}
+
+type Certificate struct {
+	CertificateFile string `json:"certificate_file,omitempty"`
+	KeyFile         string `json:"key_file,omitempty"`
 }
 
 type Route struct {
@@ -60,6 +70,12 @@ type LifecycleEvent struct {
 type ProviderConnector interface {
 	GetRoutes() ([]Route, error)
 	GetEventChannel() <-chan LifecycleEvent
+}
+
+type TLSConfig struct {
+	Manual       bool   `mapstructure:"manual"`
+	CertFilePath string `mapstructure:"certFilePath"`
+	KeyFilePath  string `mapstructure:"keyFilePath"`
 }
 
 type EventType int

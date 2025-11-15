@@ -1,1 +1,5 @@
 CaddyAdminUrl: "http://localhost:2019"
+tls:
+  manual: true
+  certFilePath: "/etc/certs/tls.crt"
+  keyFilePath: "/etc/certs/tls.key"

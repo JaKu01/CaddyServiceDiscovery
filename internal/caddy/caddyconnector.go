@@ -9,12 +9,14 @@ import (
 )
 
 type Connector struct {
-	Url string
+	Url       string
+	TlsConfig TLSConfig
 }
 
-func NewConnector(url string) *Connector {
+func NewConnector(url string, tlsConfig TLSConfig) *Connector {
 	return &Connector{
-		Url: url,
+		Url:       url,
+		TlsConfig: tlsConfig,
 	}
 }
 
@@ -45,10 +47,25 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 func (c *Connector) CreateCaddyConfig() error {
 	config := Config{}
 	config.Apps.HTTP.Servers = make(map[string]Server, 1)
-	config.Apps.HTTP.Servers["srv0"] = Server{
+
+	server := Server{
 		Listen: []string{":443", ":80"},
 		Routes: []Route{},
 	}
+
+	if c.TlsConfig.Manual {
+		server.TLSConnectionPolicies = []TLSConnectionPolicy{
+			{
+				Certificate: &Certificate{
+					CertificateFile: c.TlsConfig.CertFilePath,
+					KeyFile:         c.TlsConfig.KeyFilePath,
+				},
+			},
+		}
+	}
+
+	config.Apps.HTTP.Servers["srv0"] = server
+
 	body, err := json.Marshal(config)
 	if err != nil {
 		return err
