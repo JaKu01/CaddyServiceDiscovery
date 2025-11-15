@@ -15,8 +15,12 @@ func main() {
 	}
 	log.Printf("Configuration: CaddyAdminUrl=%s", caddyAdminUrl)
 
-	err = manager.StartServiceDiscovery(caddyAdminUrl)
+	conn, err := newProviderConnector()
 	if err != nil {
+		panic(err)
+	}
+
+	if err = manager.StartServiceDiscovery(caddyAdminUrl, conn); err != nil {
 		panic(err)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 )
 
 type Connector struct {
@@ -88,7 +87,7 @@ func (c *Connector) SetRoutes(routes []Route) error {
 }
 
 // NewReverseProxyRoute creates a reverse proxy forwarding accesses to incomingDomain to upstreamPort
-func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
+func NewReverseProxyRoute(incomingDomain string, upstream string) Route {
 	return Route{
 		Handle: []Handle{
 			{
@@ -101,7 +100,7 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 								Handler: "reverse_proxy",
 								Upstreams: []Upstream{
 									{
-										Dial: ":" + strconv.Itoa(upstreamPort),
+										Dial: upstream,
 									},
 								},
 							},
@@ -116,4 +115,30 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 			},
 		},
 	}
+}
+
+func New404FallbackRoute() Route {
+	return Route{
+		Match: []Match{{}}, // match everything
+		Handle: []Handle{
+			{
+				Handler:    "static_response",
+				StatusCode: 404,
+				Body:       "Not Found",
+			},
+		},
+	}
+}
+
+func (c *Connector) PrintCurrentConfig() error {
+	config, err := c.GetCaddyConfig()
+	if err != nil {
+		return err
+	}
+	converted, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Config: %s\n", string(converted))
+	return nil
 }
