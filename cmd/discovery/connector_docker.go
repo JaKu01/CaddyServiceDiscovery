@@ -9,5 +9,5 @@ import (
 
 // Returns a Docker connector when built with the 'docker' tag.
 func newProviderConnector() (caddy.ProviderConnector, error) {
-	return docker.NewDockerConnector()
+	return docker.NewDockerConnector(), nil
 }
