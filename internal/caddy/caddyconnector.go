@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -54,6 +55,9 @@ func (c *Connector) CreateCaddyConfig() error {
 	}
 
 	if c.TlsConfig.Manual {
+		slog.Info("Using manual TLS configuration",
+			"certFilePath", c.TlsConfig.CertFilePath,
+			"keyFilePath", c.TlsConfig.KeyFilePath)
 		server.TLSConnectionPolicies = []TLSConnectionPolicy{
 			{
 				Certificate: &Certificate{
