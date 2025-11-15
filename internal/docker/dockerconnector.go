@@ -2,7 +2,7 @@ package dockerconnector
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strconv"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -77,7 +77,7 @@ func (dc *DockerConnector) GetEventChannel() <-chan caddy.LifecycleEvent {
 				}
 				transformedEvents <- *transformedEvent
 			case err := <-err:
-				log.Println("Error listening to docker events:", err)
+				slog.Error("Error listening to docker events", "error", err)
 			case <-dc.ctx.Done():
 				return
 			}
@@ -105,7 +105,7 @@ func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 	portStr := rawEvent.Actor.Attributes[portLabel]
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		log.Printf("Error converting docker container port '%s' to int\n", portStr)
+		slog.Error("Error converting docker container port to int", "port", portStr)
 		return nil
 	}
 
@@ -132,7 +132,7 @@ func (dc *DockerConnector) GetAllContainersWithActiveLabel() ([]caddy.ContainerI
 		if container.Labels[activeLabel] == "true" {
 			port, err := strconv.Atoi(container.Labels[portLabel])
 			if err != nil {
-				log.Println("Error converting port to int")
+				slog.Error("Error converting port to int")
 				continue
 			}
 

@@ -30,7 +30,7 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// if content is "null", return nil
+	// if the content is "null", return nil
 	if len(responseContent) == 0 || string(responseContent) == "null\n" {
 		return nil, fmt.Errorf("no caddy config found")
 	}
@@ -79,9 +79,6 @@ func (c *Connector) SetRoutes(routes []Route) error {
 		return err
 	}
 	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println(resp.Status, string(respBody))
 
 	return nil
 }

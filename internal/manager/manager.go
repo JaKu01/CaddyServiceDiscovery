@@ -2,7 +2,7 @@ package manager
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
 )
@@ -10,8 +10,8 @@ import (
 func StartServiceDiscovery(caddyAdminUrl string, providerConnector caddy.ProviderConnector) error {
 	caddyConnector := caddy.NewConnector(caddyAdminUrl)
 
-	log.Println("Starting manager for service discovery")
-	log.Printf("Using caddy admin url: %s", caddyAdminUrl)
+	slog.Info("Starting manager for service discovery")
+	slog.Info("Using caddy admin api", "url", caddyAdminUrl)
 
 	err := createCaddyConfigIfMissing(caddyConnector)
 	if err != nil {
@@ -32,7 +32,7 @@ func StartServiceDiscovery(caddyAdminUrl string, providerConnector caddy.Provide
 
 func handleLifecycleEvents(providerConnector caddy.ProviderConnector, err error, routes []caddy.Route, caddyConnector *caddy.Connector) error {
 	for lifecycleEvent := range providerConnector.GetEventChannel() {
-		log.Printf("Received lifecycle event %+v\n", lifecycleEvent)
+		slog.Info("Received lifecycle event", "content", lifecycleEvent)
 		err = updateRoutes(lifecycleEvent, &routes)
 		if err != nil {
 			return err
@@ -52,7 +52,7 @@ func configureInitialRoutes(err error, providerConnector caddy.ProviderConnector
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Initial server map retrieved, updating caddy configuration")
+	slog.Info("Initial server map retrieved, updating caddy configuration")
 
 	_ = caddyConnector.PrintCurrentConfig()
 
@@ -69,7 +69,7 @@ func configureInitialRoutes(err error, providerConnector caddy.ProviderConnector
 func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) error {
 	switch lifecycleEvent.EventType {
 	case caddy.StartEvent:
-		fmt.Printf("Adding route %+v\n", lifecycleEvent.ContainerInfo)
+		slog.Info("Adding route", "detail", lifecycleEvent.ContainerInfo)
 		// Deduplicate
 		for _, r := range *routes {
 			if sameRoute(r, lifecycleEvent.ContainerInfo) {
@@ -83,7 +83,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 		return nil
 
 	case caddy.DieEvent:
-		fmt.Printf("Removing route %+v\n", lifecycleEvent.ContainerInfo)
+		slog.Info("Removing route", "detail", lifecycleEvent.ContainerInfo)
 		newRoutes := make([]caddy.Route, 0, len(*routes))
 		removed := false
 		for _, r := range *routes {
@@ -165,7 +165,7 @@ func createCaddyConfigIfMissing(caddyConnector *caddy.Connector) error {
 		return nil
 	}
 
-	fmt.Println("No caddy config found, creating one")
+	slog.Warn("No caddy config found, creating one")
 	err = caddyConnector.CreateCaddyConfig()
 	if err != nil {
 		return err

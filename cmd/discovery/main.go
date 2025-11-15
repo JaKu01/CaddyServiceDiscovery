@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 
 	"github.com/jaku01/caddyservicediscovery/internal/manager"
 	"github.com/spf13/viper"
@@ -13,7 +13,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Configuration: CaddyAdminUrl=%s", caddyAdminUrl)
+	slog.Info("Configuration: CaddyAdminUrl", "url", caddyAdminUrl)
 
 	conn, err := newProviderConnector()
 	if err != nil {
@@ -37,9 +37,9 @@ func loadConfiguration() (string, error) {
 		if !errors.As(err, &configFileNotFoundError) {
 			return "", err
 		}
-		log.Println("No configuration file found, using default values")
+		slog.Warn("No configuration file found, using default values")
 	} else {
-		log.Println("Configuration file loaded successfully")
+		slog.Info("Configuration file loaded successfully")
 	}
 
 	return viper.GetString("CaddyAdminUrl"), nil
