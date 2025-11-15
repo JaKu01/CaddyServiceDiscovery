@@ -18,25 +18,25 @@ const (
 	domainLabel = "caddy.service.discovery.domain"
 )
 
-type DockerConnector struct {
+type Connector struct {
 	dockerClient *client.Client
 	ctx          context.Context
 }
 
-func NewDockerConnector() *DockerConnector {
+func NewDockerConnector() *Connector {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
 
-	return &DockerConnector{
+	return &Connector{
 		dockerClient: cli,
 		ctx:          ctx,
 	}
 }
 
-func (dc *DockerConnector) GetRoutes() ([]caddy.Route, error) {
+func (dc *Connector) GetRoutes() ([]caddy.Route, error) {
 	containers, err := dc.GetAllContainersWithActiveLabel()
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (dc *DockerConnector) GetRoutes() ([]caddy.Route, error) {
 	return routes, nil
 }
 
-func (dc *DockerConnector) GetEventChannel() <-chan caddy.LifecycleEvent {
+func (dc *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 	transformedEvents := make(chan caddy.LifecycleEvent)
 
 	go func() {
@@ -121,7 +121,7 @@ func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 	}
 }
 
-func (dc *DockerConnector) GetAllContainersWithActiveLabel() ([]caddy.ContainerInfo, error) {
+func (dc *Connector) GetAllContainersWithActiveLabel() ([]caddy.ContainerInfo, error) {
 	containers, err := dc.dockerClient.ContainerList(dc.ctx, containertypes.ListOptions{})
 	if err != nil {
 		return nil, err
