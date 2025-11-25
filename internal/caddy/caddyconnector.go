@@ -10,23 +10,26 @@ import (
 )
 
 type Connector struct {
-	Url       string
-	TlsConfig TLSConfig
+	Config *CaddyConfig
 }
 
-func NewConnector(url string, tlsConfig TLSConfig) *Connector {
+func NewConnector(caddyConfig CaddyConfig) *Connector {
 	return &Connector{
-		Url:       url,
-		TlsConfig: tlsConfig,
+		Config: &caddyConfig,
 	}
 }
 
 func (c *Connector) GetCaddyConfig() (*Config, error) {
-	resp, err := http.Get(c.Url + "/config/")
+	url := c.Config.CaddyAdminUrl + "/config/"
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
+	}
 
 	responseContent, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -35,7 +38,7 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 
 	// if the content is "null", return nil
 	if len(responseContent) == 0 || string(responseContent) == "null\n" {
-		return nil, fmt.Errorf("no caddy config found")
+		return nil, fmt.Errorf("no caddy Config found")
 	}
 
 	caddyConfig, err := UnmarshalCaddyConfig(responseContent)
@@ -54,15 +57,15 @@ func (c *Connector) CreateCaddyConfig() error {
 		Routes: []Route{},
 	}
 
-	if c.TlsConfig.Manual {
+	if c.Config.TLSConfig.Manual {
 		slog.Info("Using manual TLS configuration",
-			"certFilePath", c.TlsConfig.CertFilePath,
-			"keyFilePath", c.TlsConfig.KeyFilePath)
+			"certFilePath", c.Config.TLSConfig.CertFilePath,
+			"keyFilePath", c.Config.TLSConfig.KeyFilePath)
 		server.TLSConnectionPolicies = []TLSConnectionPolicy{
 			{
 				Certificate: &Certificate{
-					CertificateFile: c.TlsConfig.CertFilePath,
-					KeyFile:         c.TlsConfig.KeyFilePath,
+					CertificateFile: c.Config.TLSConfig.CertFilePath,
+					KeyFile:         c.Config.TLSConfig.KeyFilePath,
 				},
 			},
 		}
@@ -75,10 +78,17 @@ func (c *Connector) CreateCaddyConfig() error {
 		return err
 	}
 
-	resp, err := http.Post(c.Url+"/load", "application/json", bytes.NewReader(body))
+	url := c.Config.CaddyAdminUrl + "/load"
+	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
+	}
+
+	slog.Info("Created Caddy config", "response", resp)
 	defer resp.Body.Close()
 	return nil
 }
@@ -89,7 +99,8 @@ func (c *Connector) SetRoutes(routes []Route) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, c.Url+"/config/apps/http/servers/srv0/routes/", bytes.NewReader(reqBody))
+	url := c.Config.CaddyAdminUrl + "/config/apps/http/servers/srv0/routes/"
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return err
 	}
@@ -99,6 +110,11 @@ func (c *Connector) SetRoutes(routes []Route) error {
 	if err != nil {
 		return err
 	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
 	defer resp.Body.Close()
 
 	return nil
@@ -135,6 +151,45 @@ func NewReverseProxyRoute(incomingDomain string, upstream string) Route {
 	}
 }
 
+func NewExternalReverseProxyRoute(incomingDomain string, upstream string, tls bool) Route {
+	upstreamHandle := Handle{
+		Handler: "reverse_proxy",
+		Upstreams: []Upstream{
+			{
+				Dial: upstream,
+			},
+		},
+	}
+
+	if tls {
+		upstreamHandle.Transport = &Transport{
+			Protocol: "http",
+			TLS:      &TransportTLS{},
+		}
+	}
+
+	return Route{
+		Handle: []Handle{
+			{
+				Handler: "subroute",
+				Routes: []Route{
+					{
+						Match: nil,
+						Handle: []Handle{
+							upstreamHandle,
+						},
+					},
+				},
+			},
+		},
+		Match: []Match{
+			{
+				Host: []string{incomingDomain},
+			},
+		},
+	}
+}
+
 func New404FallbackRoute() Route {
 	return Route{
 		Match: []Match{{}}, // match everything
@@ -153,7 +208,8 @@ func (c *Connector) PrintCurrentConfig() error {
 	if err != nil {
 		return err
 	}
-	converted, err := json.MarshalIndent(config, "", "  ")
+
+	converted, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}

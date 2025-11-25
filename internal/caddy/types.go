@@ -50,20 +50,32 @@ type Handle struct {
 	// for static_response
 	StatusCode int    `json:"status_code,omitempty"`
 	Body       string `json:"body,omitempty"`
+
+	// optional transport configuration for reverse_proxy upstreams
+	Transport *Transport `json:"transport,omitempty"`
 }
 
 type Upstream struct {
 	Dial string `json:"dial"`
 }
 
-type ContainerInfo struct {
-	Port     int
-	Domain   string
-	Upstream string
+type Transport struct {
+	Protocol string        `json:"protocol,omitempty"`
+	TLS      *TransportTLS `json:"tls,omitempty"`
+}
+
+type TransportTLS struct {
+	InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
+}
+
+type EndpointInfo struct {
+	Port     int    `yaml:"port"`
+	Domain   string `yaml:"domain"`
+	Upstream string `yaml:"upstream"`
 }
 
 type LifecycleEvent struct {
-	ContainerInfo ContainerInfo
+	ContainerInfo EndpointInfo
 	EventType     EventType
 }
 
@@ -76,6 +88,18 @@ type TLSConfig struct {
 	Manual       bool   `mapstructure:"manual"`
 	CertFilePath string `mapstructure:"certFilePath"`
 	KeyFilePath  string `mapstructure:"keyFilePath"`
+}
+
+type ManualRoute struct {
+	Domain   string `yaml:"domain"`
+	Upstream string `yaml:"upstreamUrl"`
+	TLS      bool   `yaml:"tls"`
+}
+
+type CaddyConfig struct {
+	ManualRoutes  []ManualRoute `yaml:"routes"`
+	TLSConfig     TLSConfig
+	CaddyAdminUrl string
 }
 
 type EventType int

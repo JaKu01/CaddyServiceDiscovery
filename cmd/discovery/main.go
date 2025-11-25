@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"log"
 	"log/slog"
 
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
@@ -10,24 +12,26 @@ import (
 )
 
 func main() {
-	caddyAdminUrl, tlsConfig, err := loadConfiguration()
+	caddyConfig, err := loadConfiguration()
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("Configuration: CaddyAdminUrl", "url", caddyAdminUrl)
+	printVal, err := json.MarshalIndent(caddyConfig, "", "  ")
+	log.Println(string(printVal))
+	slog.Info("Configuration: CaddyAdminUrl", "url", caddyConfig.CaddyAdminUrl)
 
 	conn, err := newProviderConnector()
 	if err != nil {
 		panic(err)
 	}
 
-	caddyConnector := caddy.NewConnector(caddyAdminUrl, tlsConfig)
+	caddyConnector := caddy.NewConnector(caddyConfig)
 	if err = manager.StartServiceDiscovery(caddyConnector, conn); err != nil {
 		panic(err)
 	}
 }
 
-func loadConfiguration() (string, caddy.TLSConfig, error) {
+func loadConfiguration() (caddy.CaddyConfig, error) {
 	viper.SetConfigName("configuration")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
@@ -37,10 +41,12 @@ func loadConfiguration() (string, caddy.TLSConfig, error) {
 	viper.SetDefault("tls.certFilePath", "/etc/certs/tls.crt")
 	viper.SetDefault("tls.keyFilePath", "/etc/certs/tls.key")
 
+	viper.SetDefault("manualRoutes.routes", []map[string]interface{}{})
+
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {
-			return "", caddy.TLSConfig{}, err
+			return caddy.CaddyConfig{}, err
 		}
 		slog.Warn("No configuration file found, using default values")
 	} else {
@@ -51,8 +57,18 @@ func loadConfiguration() (string, caddy.TLSConfig, error) {
 
 	var tlsCfg caddy.TLSConfig
 	if err := viper.UnmarshalKey("tls", &tlsCfg); err != nil {
-		return caddyAdminUrl, caddy.TLSConfig{}, err
+		return caddy.CaddyConfig{
+			TLSConfig:     tlsCfg,
+			CaddyAdminUrl: caddyAdminUrl,
+		}, err
 	}
 
-	return caddyAdminUrl, tlsCfg, nil
+	var manualRoutes []caddy.ManualRoute
+	err := viper.UnmarshalKey("manualRoutes.routes", &manualRoutes)
+
+	return caddy.CaddyConfig{
+		TLSConfig:     tlsCfg,
+		CaddyAdminUrl: caddyAdminUrl,
+		ManualRoutes:  manualRoutes,
+	}, err
 }

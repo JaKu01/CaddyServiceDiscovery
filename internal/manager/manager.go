@@ -10,7 +10,7 @@ import (
 func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector caddy.ProviderConnector) error {
 
 	slog.Info("Starting manager for service discovery")
-	slog.Info("Using caddy admin api", "url", caddyConnector.Url)
+	slog.Info("Using caddy admin api", "url", caddyConnector.Config.CaddyAdminUrl)
 
 	err := createCaddyConfigIfMissing(caddyConnector)
 	if err != nil {
@@ -53,7 +53,13 @@ func configureInitialRoutes(err error, providerConnector caddy.ProviderConnector
 	}
 	slog.Info("Initial server map retrieved, updating caddy configuration")
 
-	_ = caddyConnector.PrintCurrentConfig()
+	for _, manualRoute := range caddyConnector.Config.ManualRoutes {
+		if !hasManualRoute(routes, manualRoute) {
+			reverseProxyRoute := caddy.NewExternalReverseProxyRoute(manualRoute.Domain, manualRoute.Upstream, manualRoute.TLS)
+			routes = append(routes, reverseProxyRoute)
+			slog.Info("Added manual route", "route", manualRoute)
+		}
+	}
 
 	if !fallbackExists(routes) {
 		routes = append(routes, caddy.New404FallbackRoute())
@@ -62,6 +68,7 @@ func configureInitialRoutes(err error, providerConnector caddy.ProviderConnector
 	if err != nil {
 		return nil, err
 	}
+	_ = caddyConnector.PrintCurrentConfig()
 	return routes, nil
 }
 
@@ -102,7 +109,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 	return fmt.Errorf("unknown lifecycle event")
 }
 
-func sameRoute(r caddy.Route, info caddy.ContainerInfo) bool {
+func sameRoute(r caddy.Route, info caddy.EndpointInfo) bool {
 	// Host
 	if len(r.Match) == 0 || len(r.Match[0].Host) == 0 {
 		return false
@@ -119,6 +126,15 @@ func sameRoute(r caddy.Route, info caddy.ContainerInfo) bool {
 	}
 
 	return rp.Upstreams[0].Dial == info.Upstream
+}
+
+func hasManualRoute(routes []caddy.Route, route caddy.ManualRoute) bool {
+	for _, r := range routes {
+		if r.Match[0].Host[0] == route.Domain {
+			return true
+		}
+	}
+	return false
 }
 
 func fallbackExists(routes []caddy.Route) bool {
@@ -161,6 +177,7 @@ func createCaddyConfigIfMissing(caddyConnector *caddy.Connector) error {
 		return err
 	}
 	if config != nil {
+		slog.Info("Caddy config found, skipping creation")
 		return nil
 	}
 

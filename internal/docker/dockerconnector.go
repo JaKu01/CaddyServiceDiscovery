@@ -109,7 +109,7 @@ func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 		return nil
 	}
 
-	containerInfo := caddy.ContainerInfo{
+	containerInfo := caddy.EndpointInfo{
 		Port:     port,
 		Domain:   rawEvent.Actor.Attributes[domainLabel],
 		Upstream: ":" + portStr,
@@ -121,13 +121,13 @@ func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 	}
 }
 
-func (dc *Connector) GetAllContainersWithActiveLabel() ([]caddy.ContainerInfo, error) {
+func (dc *Connector) GetAllContainersWithActiveLabel() ([]caddy.EndpointInfo, error) {
 	containers, err := dc.dockerClient.ContainerList(dc.ctx, containertypes.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var activeContainers []caddy.ContainerInfo
+	var activeContainers []caddy.EndpointInfo
 	for _, container := range containers {
 		if container.Labels[activeLabel] == "true" {
 			port, err := strconv.Atoi(container.Labels[portLabel])
@@ -136,7 +136,7 @@ func (dc *Connector) GetAllContainersWithActiveLabel() ([]caddy.ContainerInfo, e
 				continue
 			}
 
-			containerInfo := caddy.ContainerInfo{
+			containerInfo := caddy.EndpointInfo{
 				Port:     port,
 				Domain:   container.Labels[domainLabel],
 				Upstream: ":" + container.Labels[portLabel],

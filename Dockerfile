@@ -17,6 +17,6 @@ FROM scratch
 # CA certificates for TLS (optional)
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/discovery /discovery
-COPY --from=builder /src/configuration.yaml /app/configuration.yaml
+COPY --from=builder /src/configuration.yaml /configuration.yaml
 
 ENTRYPOINT ["/discovery"]

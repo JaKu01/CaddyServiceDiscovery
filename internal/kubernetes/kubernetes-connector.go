@@ -122,7 +122,7 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 			)
 
 			lifecycleEvents <- caddy.LifecycleEvent{
-				ContainerInfo: caddy.ContainerInfo{
+				ContainerInfo: caddy.EndpointInfo{
 					Port:     port,
 					Domain:   domain,
 					Upstream: upstream,
