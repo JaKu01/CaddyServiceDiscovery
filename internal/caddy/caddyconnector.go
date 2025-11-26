@@ -57,39 +57,44 @@ func (c *Connector) CreateCaddyConfig() error {
 		Routes: []Route{},
 	}
 
+	config.Apps.HTTP.Servers["srv0"] = server
+
 	if c.Config.TLSConfig.Manual {
 		slog.Info("Using manual TLS configuration",
 			"certFilePath", c.Config.TLSConfig.CertFilePath,
 			"keyFilePath", c.Config.TLSConfig.KeyFilePath)
-		server.TLSConnectionPolicies = []TLSConnectionPolicy{
-			{
-				Certificate: &Certificate{
-					CertificateFile: c.Config.TLSConfig.CertFilePath,
-					KeyFile:         c.Config.TLSConfig.KeyFilePath,
+
+		config.Apps.TLS = &TLSApp{
+			Certificates: Certificates{
+				LoadFiles: []LoadFile{
+					{
+						Certificate: c.Config.TLSConfig.CertFilePath,
+						Key:         c.Config.TLSConfig.KeyFilePath,
+					},
 				},
 			},
 		}
 	}
 
-	config.Apps.HTTP.Servers["srv0"] = server
-
-	body, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-
 	url := c.Config.CaddyAdminUrl + "/load"
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	bodyContent, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewReader(bodyContent))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
 	}
 
-	slog.Info("Created Caddy config", "response", resp)
-	defer resp.Body.Close()
+	_ = c.PrintCurrentConfig()
+
+	slog.Info("Created Caddy config successfully")
 	return nil
 }
 

@@ -12,12 +12,12 @@ func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector ca
 	slog.Info("Starting manager for service discovery")
 	slog.Info("Using caddy admin api", "url", caddyConnector.Config.CaddyAdminUrl)
 
-	err := createCaddyConfigIfMissing(caddyConnector)
+	err := caddyConnector.CreateCaddyConfig()
 	if err != nil {
 		return err
 	}
 
-	routes, err := configureInitialRoutes(err, providerConnector, caddyConnector)
+	routes, err := configureInitialRoutes(providerConnector, caddyConnector)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func handleLifecycleEvents(providerConnector caddy.ProviderConnector, err error,
 	return nil
 }
 
-func configureInitialRoutes(err error, providerConnector caddy.ProviderConnector, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
+func configureInitialRoutes(providerConnector caddy.ProviderConnector, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
 	routes, err := providerConnector.GetRoutes()
 	if err != nil {
 		return nil, err

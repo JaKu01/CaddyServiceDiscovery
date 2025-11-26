@@ -9,7 +9,7 @@ RUN go mod download
 
 # Copy source and build static binary
 COPY . .
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=0 GOOS=linux
 RUN go build -tags kubernetes -ldflags="-s -w" -o /app/discovery ./cmd/discovery
 
 # Stage 2: Minimal runtime

@@ -1,2 +1,4 @@
 .idea
 testing
+node_modules
+pulumi

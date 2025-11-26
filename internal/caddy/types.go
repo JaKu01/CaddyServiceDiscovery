@@ -15,6 +15,8 @@ type Config struct {
 		HTTP struct {
 			Servers map[string]Server `json:"servers"`
 		} `json:"http"`
+
+		TLS *TLSApp `json:"tls,omitempty"`
 	} `json:"apps"`
 }
 
@@ -24,13 +26,24 @@ type Server struct {
 	TLSConnectionPolicies []TLSConnectionPolicy `json:"tls_connection_policies,omitempty"`
 }
 
+type TLSApp struct {
+	Certificates Certificates `json:"certificates"`
+}
+
+type Certificates struct {
+	LoadFiles []LoadFile `json:"load_files,omitempty"`
+}
+
 type TLSConnectionPolicy struct {
-	Certificate *Certificate `json:"certificate,omitempty"`
 }
 
 type Certificate struct {
-	CertificateFile string `json:"certificate_file,omitempty"`
-	KeyFile         string `json:"key_file,omitempty"`
+	LoadFiles []LoadFile `json:"load_files,omitempty"`
+}
+
+type LoadFile struct {
+	Certificate string `json:"certificate"`
+	Key         string `json:"key"`
 }
 
 type Route struct {
