@@ -11,13 +11,13 @@ func TestConnector_GetCaddyConfig(t *testing.T) {
 	mockResponse := "{\"apps\":{\"http\":{\"servers\":{\"exampleServer\":{\"listen\":[\":443\"],\"routes\":[{\"handle\":[{\"handler\":\"reverse_proxy\",\"upstreams\":[{\"dial\":\":8080\"}]}]}]}}}}}\n"
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/Config/" && r.Method == http.MethodGet {
+		if r.URL.Path == "/config/" && r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/Config/", http.MethodGet, r.URL.Path, r.Method)
+				"/config/", http.MethodGet, r.URL.Path, r.Method)
 		}
 	}))
 
@@ -67,13 +67,13 @@ func TestConnector_GetCaddyConfigFailsBecauseOfEmptyBody(t *testing.T) {
 	mockResponse := ""
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/Config/" && r.Method == http.MethodGet {
+		if r.URL.Path == "/config/" && r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/Config/", http.MethodGet, r.URL.Path, r.Method)
+				"/config/", http.MethodGet, r.URL.Path, r.Method)
 		}
 	}))
 
@@ -89,13 +89,13 @@ func TestConnector_GetCaddyConfigFailsBecauseOfInvalidJson(t *testing.T) {
 	mockResponse := "{"
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/Config/" && r.Method == http.MethodGet {
+		if r.URL.Path == "/config/" && r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(mockResponse))
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/Config/", http.MethodGet, r.URL.Path, r.Method)
+				"/config/", http.MethodGet, r.URL.Path, r.Method)
 		}
 	}))
 
@@ -113,7 +113,7 @@ func TestConnector_CreateCaddyConfig(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/Config/", http.MethodPost, r.URL.Path, r.Method)
+				"/load", http.MethodPost, r.URL.Path, r.Method)
 		}
 	}))
 
@@ -137,11 +137,11 @@ func TestConnector_CreateCaddyConfigReturnsError(t *testing.T) {
 
 func TestConnector_ReplaceRoutes(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/Config/apps/http/servers/srv0/routes/" && r.Method == http.MethodPatch {
+		if r.URL.Path == "/config/apps/http/servers/srv0/routes/" && r.Method == http.MethodPatch {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/Config/", http.MethodPost, r.URL.Path, r.Method)
+				"/config/", http.MethodPost, r.URL.Path, r.Method)
 		}
 	}))
 

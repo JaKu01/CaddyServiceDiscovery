@@ -92,8 +92,6 @@ func (c *Connector) CreateCaddyConfig() error {
 		return fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
 	}
 
-	_ = c.PrintCurrentConfig()
-
 	slog.Info("Created Caddy config successfully")
 	return nil
 }
