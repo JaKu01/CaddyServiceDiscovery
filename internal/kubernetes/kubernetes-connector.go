@@ -41,7 +41,7 @@ func NewKubernetesConnector() (*Connector, error) {
 }
 
 func (c *Connector) GetRoutes() ([]caddy.Route, error) {
-	services, err := c.ClientSet.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
+	services, err := c.ClientSet.CoreV1().Services(metav1.NamespaceAll).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 	go func() {
 		defer close(lifecycleEvents)
 
-		watcher, err := c.ClientSet.CoreV1().Services("").Watch(c.ctx, metav1.ListOptions{})
+		watcher, err := c.ClientSet.CoreV1().Services(metav1.NamespaceAll).Watch(c.ctx, metav1.ListOptions{})
 		if err != nil {
 			return
 		}
