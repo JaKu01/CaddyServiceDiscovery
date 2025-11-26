@@ -95,7 +95,7 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 				continue
 			}
 
-			// map k8s event type to internal EventType
+			// map k8s event type to internal LifeCycleEventType
 			var eventType caddy.EventType
 			switch ev.Type {
 			case watch.Added:
@@ -127,7 +127,7 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 					Domain:   domain,
 					Upstream: upstream,
 				},
-				EventType: eventType,
+				LifeCycleEventType: eventType,
 			}
 		}
 	}()

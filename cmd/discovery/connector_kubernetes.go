@@ -8,6 +8,6 @@ import (
 )
 
 // Returns a Kubernetes connector when built with the 'kubernetes' tag.
-func newProviderConnector() (caddy.ProviderConnector, error) {
+func newProviderConnector() (caddy.ServiceDiscoveryProvider, error) {
 	return kubernetes.NewKubernetesConnector()
 }

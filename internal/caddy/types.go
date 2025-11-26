@@ -88,11 +88,11 @@ type EndpointInfo struct {
 }
 
 type LifecycleEvent struct {
-	ContainerInfo EndpointInfo
-	EventType     EventType
+	ContainerInfo      EndpointInfo
+	LifeCycleEventType EventType
 }
 
-type ProviderConnector interface {
+type ServiceDiscoveryProvider interface {
 	GetRoutes() ([]Route, error)
 	GetEventChannel() <-chan LifecycleEvent
 }

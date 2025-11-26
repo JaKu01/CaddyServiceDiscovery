@@ -116,8 +116,8 @@ func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 	}
 
 	return &caddy.LifecycleEvent{
-		ContainerInfo: containerInfo,
-		EventType:     eventType,
+		ContainerInfo:      containerInfo,
+		LifeCycleEventType: eventType,
 	}
 }
 

@@ -7,8 +7,7 @@ import (
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
 )
 
-func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector caddy.ProviderConnector) error {
-
+func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector caddy.ServiceDiscoveryProvider) error {
 	slog.Info("Starting manager for service discovery")
 	slog.Info("Using caddy admin api", "url", caddyConnector.Config.CaddyAdminUrl)
 
@@ -22,17 +21,17 @@ func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector ca
 		return err
 	}
 
-	err = handleLifecycleEvents(providerConnector, err, routes, caddyConnector)
+	err = handleLifecycleEvents(providerConnector, routes, caddyConnector)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func handleLifecycleEvents(providerConnector caddy.ProviderConnector, err error, routes []caddy.Route, caddyConnector *caddy.Connector) error {
+func handleLifecycleEvents(providerConnector caddy.ServiceDiscoveryProvider, routes []caddy.Route, caddyConnector *caddy.Connector) error {
 	for lifecycleEvent := range providerConnector.GetEventChannel() {
 		slog.Info("Received lifecycle event", "content", lifecycleEvent)
-		err = updateRoutes(lifecycleEvent, &routes)
+		err := updateRoutes(lifecycleEvent, &routes)
 		if err != nil {
 			return err
 		}
@@ -46,7 +45,7 @@ func handleLifecycleEvents(providerConnector caddy.ProviderConnector, err error,
 	return nil
 }
 
-func configureInitialRoutes(providerConnector caddy.ProviderConnector, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
+func configureInitialRoutes(providerConnector caddy.ServiceDiscoveryProvider, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
 	routes, err := providerConnector.GetRoutes()
 	if err != nil {
 		return nil, err
@@ -73,7 +72,7 @@ func configureInitialRoutes(providerConnector caddy.ProviderConnector, caddyConn
 }
 
 func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) error {
-	switch lifecycleEvent.EventType {
+	switch lifecycleEvent.LifeCycleEventType {
 	case caddy.StartEvent:
 		slog.Info("Adding route", "detail", lifecycleEvent.ContainerInfo)
 		// Deduplicate
