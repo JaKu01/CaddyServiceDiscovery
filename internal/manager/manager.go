@@ -36,7 +36,7 @@ func handleLifecycleEvents(providerConnector caddy.ServiceDiscoveryProvider, rou
 			return err
 		}
 
-		routes = ensureFallbackAtEnd(routes)
+		routes = ensureFallbackRoute(routes)
 		err = caddyConnector.SetRoutes(routes)
 		if err != nil {
 			return err
@@ -60,7 +60,7 @@ func configureInitialRoutes(providerConnector caddy.ServiceDiscoveryProvider, ca
 		}
 	}
 
-	if !fallbackExists(routes) {
+	if !fallbackRouteExists(routes) {
 		routes = append(routes, caddy.New404FallbackRoute())
 	}
 	err = caddyConnector.SetRoutes(routes)
@@ -77,7 +77,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 		slog.Info("Adding route", "detail", lifecycleEvent.ContainerInfo)
 		// Deduplicate
 		for _, r := range *routes {
-			if sameRoute(r, lifecycleEvent.ContainerInfo) {
+			if isSameRoute(r, lifecycleEvent.ContainerInfo) {
 				return nil
 			}
 		}
@@ -92,7 +92,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 		newRoutes := make([]caddy.Route, 0, len(*routes))
 		removed := false
 		for _, r := range *routes {
-			if sameRoute(r, lifecycleEvent.ContainerInfo) {
+			if isSameRoute(r, lifecycleEvent.ContainerInfo) {
 				removed = true
 				continue
 			}
@@ -108,7 +108,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 	return fmt.Errorf("unknown lifecycle event")
 }
 
-func sameRoute(r caddy.Route, info caddy.EndpointInfo) bool {
+func isSameRoute(r caddy.Route, info caddy.EndpointInfo) bool {
 	// Host
 	if len(r.Match) == 0 || len(r.Match[0].Host) == 0 {
 		return false
@@ -136,7 +136,7 @@ func hasManualRoute(routes []caddy.Route, route caddy.ManualRoute) bool {
 	return false
 }
 
-func fallbackExists(routes []caddy.Route) bool {
+func fallbackRouteExists(routes []caddy.Route) bool {
 	for _, r := range routes {
 		if len(r.Handle) == 0 {
 			continue
@@ -149,7 +149,7 @@ func fallbackExists(routes []caddy.Route) bool {
 	return false
 }
 
-func ensureFallbackAtEnd(routes []caddy.Route) []caddy.Route {
+func ensureFallbackRoute(routes []caddy.Route) []caddy.Route {
 	var fallback *caddy.Route
 	filtered := make([]caddy.Route, 0, len(routes))
 
