@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"log/slog"
@@ -16,17 +15,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	printVal, err := json.MarshalIndent(caddyConfig, "", "  ")
-	log.Println(string(printVal))
+	log.Println(caddyConfig.String())
 	slog.Info("Configuration: CaddyAdminUrl", "url", caddyConfig.CaddyAdminUrl)
 
-	conn, err := newProviderConnector()
+	providerConnector, err := newServiceDiscoveryProviderConnector()
 	if err != nil {
 		panic(err)
 	}
 
 	caddyConnector := caddy.NewConnector(caddyConfig)
-	if err = manager.StartServiceDiscovery(caddyConnector, conn); err != nil {
+	if err = manager.StartServiceDiscovery(caddyConnector, providerConnector); err != nil {
 		panic(err)
 	}
 }
@@ -55,7 +53,7 @@ func loadConfiguration() (caddy.CaddyConfig, error) {
 
 	caddyAdminUrl := viper.GetString("CaddyAdminUrl")
 
-	tlsConfig := getTlsConfig()
+	caddyTlsConfig := getCaddyTlsConfig()
 
 	var manualRoutes []caddy.ManualRoute
 	if err := viper.UnmarshalKey("manualRoutes.routes", &manualRoutes); err != nil {
@@ -64,13 +62,13 @@ func loadConfiguration() (caddy.CaddyConfig, error) {
 	}
 
 	return caddy.CaddyConfig{
-		TLSConfig:     tlsConfig,
+		TLSConfig:     caddyTlsConfig,
 		CaddyAdminUrl: caddyAdminUrl,
 		ManualRoutes:  manualRoutes,
 	}, nil
 }
 
-func getTlsConfig() caddy.TLSConfig {
+func getCaddyTlsConfig() caddy.TLSConfig {
 	var tlsConfig caddy.TLSConfig
 	useDefaults := false
 

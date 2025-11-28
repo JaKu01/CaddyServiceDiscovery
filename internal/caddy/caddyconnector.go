@@ -124,7 +124,7 @@ func (c *Connector) SetRoutes(routes []Route) error {
 }
 
 // NewReverseProxyRoute creates a reverse proxy forwarding accesses to incomingDomain to upstreamPort
-func NewReverseProxyRoute(incomingDomain string, upstream string) Route {
+func NewReverseProxyRoute(incomingDomain string, upstreamAddr string) Route {
 	return Route{
 		Handle: []Handle{
 			{
@@ -137,7 +137,7 @@ func NewReverseProxyRoute(incomingDomain string, upstream string) Route {
 								Handler: "reverse_proxy",
 								Upstreams: []Upstream{
 									{
-										Dial: upstream,
+										Dial: upstreamAddr,
 									},
 								},
 							},

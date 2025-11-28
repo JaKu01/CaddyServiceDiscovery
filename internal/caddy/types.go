@@ -115,6 +115,14 @@ type CaddyConfig struct {
 	CaddyAdminUrl string
 }
 
+func (c CaddyConfig) String() string {
+	caddyConfigStr, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(caddyConfigStr)
+}
+
 type EventType int
 
 const (

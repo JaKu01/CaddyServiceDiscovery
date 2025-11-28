@@ -8,6 +8,6 @@ import (
 )
 
 // Returns a Docker connector when built with the 'docker' tag.
-func newProviderConnector() (caddy.ServiceDiscoveryProvider, error) {
+func newServiceDiscoveryProviderConnector() (caddy.ServiceDiscoveryProvider, error) {
 	return docker.NewDockerConnector(), nil
 }
