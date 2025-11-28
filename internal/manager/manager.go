@@ -169,21 +169,3 @@ func ensureFallbackRoute(routes []caddy.Route) []caddy.Route {
 
 	return filtered
 }
-
-func createCaddyConfigIfMissing(caddyConnector *caddy.Connector) error {
-	config, err := caddyConnector.GetCaddyConfig()
-	if err != nil && err.Error() != "no caddy config found" {
-		return err
-	}
-	if config != nil {
-		slog.Info("Caddy config found, skipping creation")
-		return nil
-	}
-
-	slog.Warn("No caddy config found, creating one")
-	err = caddyConnector.CreateCaddyConfig()
-	if err != nil {
-		return err
-	}
-	return err
-}
