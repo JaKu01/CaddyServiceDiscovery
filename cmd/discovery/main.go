@@ -55,20 +55,42 @@ func loadConfiguration() (caddy.CaddyConfig, error) {
 
 	caddyAdminUrl := viper.GetString("CaddyAdminUrl")
 
-	var tlsCfg caddy.TLSConfig
-	if err := viper.UnmarshalKey("tls", &tlsCfg); err != nil {
-		return caddy.CaddyConfig{
-			TLSConfig:     tlsCfg,
-			CaddyAdminUrl: caddyAdminUrl,
-		}, err
-	}
+	tlsConfig := getTlsConfig()
 
 	var manualRoutes []caddy.ManualRoute
-	err := viper.UnmarshalKey("manualRoutes.routes", &manualRoutes)
+	if err := viper.UnmarshalKey("manualRoutes.routes", &manualRoutes); err != nil {
+		slog.Warn("Failed to unmarshal manual routes, using defaults", "error", err)
+		manualRoutes = []caddy.ManualRoute{}
+	}
 
 	return caddy.CaddyConfig{
-		TLSConfig:     tlsCfg,
+		TLSConfig:     tlsConfig,
 		CaddyAdminUrl: caddyAdminUrl,
 		ManualRoutes:  manualRoutes,
-	}, err
+	}, nil
+}
+
+func getTlsConfig() caddy.TLSConfig {
+	var tlsConfig caddy.TLSConfig
+	useDefaults := false
+
+	if err := viper.UnmarshalKey("tls", &tlsConfig); err != nil {
+		slog.Warn("[TLS-Config] Failed to unmarshal TLS config", "error", err)
+		useDefaults = true
+	}
+
+	if tlsConfig.CertFilePath == "" {
+		slog.Warn("[TLS-Config] No cert file path specified")
+		useDefaults = true
+	}
+
+	if tlsConfig.KeyFilePath == "" {
+		slog.Warn("[TLS-Config] No key file path specified")
+		useDefaults = true
+	}
+
+	if useDefaults {
+		return caddy.TLSConfig{}
+	}
+	return tlsConfig
 }
