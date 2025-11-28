@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
+	"github.com/jaku01/caddyservicediscovery/internal/discovery"
 	"github.com/jaku01/caddyservicediscovery/internal/manager"
 	"github.com/spf13/viper"
 )
@@ -29,7 +30,7 @@ func main() {
 	}
 }
 
-func loadConfiguration() (caddy.CaddyConfig, error) {
+func loadConfiguration() (discovery.CaddyConfig, error) {
 	viper.SetConfigName("configuration")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
@@ -44,7 +45,7 @@ func loadConfiguration() (caddy.CaddyConfig, error) {
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {
-			return caddy.CaddyConfig{}, err
+			return discovery.CaddyConfig{}, err
 		}
 		slog.Warn("No configuration file found, using default values")
 	} else {
@@ -55,21 +56,21 @@ func loadConfiguration() (caddy.CaddyConfig, error) {
 
 	caddyTlsConfig := getCaddyTlsConfig()
 
-	var manualRoutes []caddy.ManualRoute
+	var manualRoutes []discovery.ManualRoute
 	if err := viper.UnmarshalKey("manualRoutes.routes", &manualRoutes); err != nil {
 		slog.Warn("Failed to unmarshal manual routes, using defaults", "error", err)
-		manualRoutes = []caddy.ManualRoute{}
+		manualRoutes = []discovery.ManualRoute{}
 	}
 
-	return caddy.CaddyConfig{
+	return discovery.CaddyConfig{
 		TLSConfig:     caddyTlsConfig,
 		CaddyAdminUrl: caddyAdminUrl,
 		ManualRoutes:  manualRoutes,
 	}, nil
 }
 
-func getCaddyTlsConfig() caddy.TLSConfig {
-	var tlsConfig caddy.TLSConfig
+func getCaddyTlsConfig() discovery.TLSConfig {
+	var tlsConfig discovery.TLSConfig
 	useDefaults := false
 
 	if err := viper.UnmarshalKey("tls", &tlsConfig); err != nil {
@@ -88,7 +89,7 @@ func getCaddyTlsConfig() caddy.TLSConfig {
 	}
 
 	if useDefaults {
-		return caddy.TLSConfig{}
+		return discovery.TLSConfig{}
 	}
 	return tlsConfig
 }

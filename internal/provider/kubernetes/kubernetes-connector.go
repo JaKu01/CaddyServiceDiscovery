@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
+	"github.com/jaku01/caddyservicediscovery/internal/provider"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,8 +71,8 @@ func (c *Connector) GetRoutes() ([]caddy.Route, error) {
 	return routes, nil
 }
 
-func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
-	lifecycleEvents := make(chan caddy.LifecycleEvent)
+func (c *Connector) GetEventChannel() <-chan provider.LifecycleEvent {
+	lifecycleEvents := make(chan provider.LifecycleEvent)
 
 	go func() {
 		defer close(lifecycleEvents)
@@ -96,12 +97,12 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 			}
 
 			// map k8s event type to internal LifeCycleEventType
-			var eventType caddy.EventType
+			var eventType provider.EventType
 			switch ev.Type {
 			case watch.Added:
-				eventType = caddy.StartEvent
+				eventType = provider.StartEvent
 			case watch.Deleted:
-				eventType = caddy.DieEvent
+				eventType = provider.DieEvent
 			default:
 				// ignore other event types (Modified etc.)
 				continue
@@ -121,8 +122,8 @@ func (c *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
 				svc.Spec.Ports[0].Port,
 			)
 
-			lifecycleEvents <- caddy.LifecycleEvent{
-				ContainerInfo: caddy.EndpointInfo{
+			lifecycleEvents <- provider.LifecycleEvent{
+				ContainerInfo: provider.EndpointInfo{
 					Port:     port,
 					Domain:   domain,
 					Upstream: upstream,
