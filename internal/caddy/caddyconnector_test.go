@@ -21,7 +21,8 @@ func TestConnector_GetCaddyConfig(t *testing.T) {
 		}
 	}))
 
-	connector := NewConnector(mockServer.URL)
+	caddyConfig := CaddyConfig{CaddyAdminUrl: mockServer.URL}
+	connector := NewConnector(caddyConfig)
 
 	config, err := connector.GetCaddyConfig()
 	if err != nil {
@@ -53,7 +54,8 @@ func TestConnector_GetCaddyConfig(t *testing.T) {
 }
 
 func TestConnector_GetCaddyConfigFailsBecauseOfInvalidUrl(t *testing.T) {
-	connector := NewConnector("invalid-url")
+	caddyConfig := CaddyConfig{CaddyAdminUrl: "invalid-url"}
+	connector := NewConnector(caddyConfig)
 
 	_, err := connector.GetCaddyConfig()
 	if err == nil {
@@ -75,7 +77,8 @@ func TestConnector_GetCaddyConfigFailsBecauseOfEmptyBody(t *testing.T) {
 		}
 	}))
 
-	connector := NewConnector(mockServer.URL)
+	caddyConfig := CaddyConfig{CaddyAdminUrl: mockServer.URL}
+	connector := NewConnector(caddyConfig)
 	_, err := connector.GetCaddyConfig()
 	if err == nil {
 		t.Errorf("Expected error, got none")
@@ -96,7 +99,8 @@ func TestConnector_GetCaddyConfigFailsBecauseOfInvalidJson(t *testing.T) {
 		}
 	}))
 
-	connector := NewConnector(mockServer.URL)
+	caddyConfig := CaddyConfig{CaddyAdminUrl: mockServer.URL}
+	connector := NewConnector(caddyConfig)
 	_, err := connector.GetCaddyConfig()
 	if err == nil {
 		t.Errorf("Expected error, got none")
@@ -109,11 +113,12 @@ func TestConnector_CreateCaddyConfig(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			t.Errorf("Expected %s with method %s, got %s with method %s",
-				"/config/", http.MethodPost, r.URL.Path, r.Method)
+				"/load", http.MethodPost, r.URL.Path, r.Method)
 		}
 	}))
 
-	connector := NewConnector(mockServer.URL)
+	caddyConfig := CaddyConfig{CaddyAdminUrl: mockServer.URL}
+	connector := NewConnector(caddyConfig)
 	err := connector.CreateCaddyConfig()
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -121,7 +126,8 @@ func TestConnector_CreateCaddyConfig(t *testing.T) {
 }
 
 func TestConnector_CreateCaddyConfigReturnsError(t *testing.T) {
-	connector := NewConnector("invalid-url")
+	caddyConfig := CaddyConfig{CaddyAdminUrl: "invalid-url"}
+	connector := NewConnector(caddyConfig)
 
 	err := connector.CreateCaddyConfig()
 	if err == nil {
@@ -139,9 +145,10 @@ func TestConnector_ReplaceRoutes(t *testing.T) {
 		}
 	}))
 
-	connector := NewConnector(mockServer.URL)
+	caddyConfig := CaddyConfig{CaddyAdminUrl: mockServer.URL}
+	connector := NewConnector(caddyConfig)
 
-	route := NewReverseProxyRoute("subdomain.example.com", 8080)
+	route := NewReverseProxyRoute("subdomain.example.com", ":"+strconv.Itoa(8080))
 	routes := []Route{route}
 
 	err := connector.SetRoutes(routes)
@@ -151,9 +158,10 @@ func TestConnector_ReplaceRoutes(t *testing.T) {
 }
 
 func TestConnector_ReplaceRouteFailsBecauseOfInvalidUrl(t *testing.T) {
-	connector := NewConnector("invalid-url")
+	caddyConfig := CaddyConfig{CaddyAdminUrl: "invalid-url"}
+	connector := NewConnector(caddyConfig)
 
-	route := NewReverseProxyRoute("subdomain.example.com", 8080)
+	route := NewReverseProxyRoute("subdomain.example.com", ":"+strconv.Itoa(8080))
 	routes := []Route{route}
 
 	err := connector.SetRoutes(routes)
@@ -165,7 +173,7 @@ func TestConnector_ReplaceRouteFailsBecauseOfInvalidUrl(t *testing.T) {
 func TestNewReverseProxyRoute(t *testing.T) {
 	upstreamPort := 8080
 	incomingDomain := "subdomain.example.com"
-	route := NewReverseProxyRoute(incomingDomain, upstreamPort)
+	route := NewReverseProxyRoute(incomingDomain, ":"+strconv.Itoa(upstreamPort))
 
 	if len(route.Match) != 1 {
 		t.Errorf("Expected 1 route match, got: %d", len(route.Match))

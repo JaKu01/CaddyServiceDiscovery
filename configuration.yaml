@@ -1,1 +1,11 @@
 CaddyAdminUrl: "http://localhost:2019"
+tls:
+  manual: false
+  certFilePath: "/etc/certs/tls.crt"
+  keyFilePath: "/etc/certs/tls.key"
+
+manualRoutes:
+  routes:
+    - domain: sub.example.com
+      upstream: 1.2.3.4
+      tls: true

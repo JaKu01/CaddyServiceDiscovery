@@ -1,14 +1,15 @@
-package dockerconnector
+package docker
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strconv"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	eventtypes "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/jaku01/caddyservicediscovery/internal/caddy"
 )
 
 const (
@@ -17,55 +18,40 @@ const (
 	domainLabel = "caddy.service.discovery.domain"
 )
 
-type DockerConnector struct {
+type Connector struct {
 	dockerClient *client.Client
 	ctx          context.Context
 }
 
-type ContainerInfo struct {
-	Port          int
-	Domain        string
-	ContainerName string
-}
-
-type EventType int
-
-const (
-	ContainerStartEvent = iota
-	ContainerDieEvent
-)
-
-func (e EventType) String() string {
-	switch e {
-	case ContainerStartEvent:
-		return "ContainerStartEvent"
-	case ContainerDieEvent:
-		return "ContainerDieEvent"
-	default:
-		return "unknown"
-	}
-}
-
-type DockerEvent struct {
-	ContainerInfo ContainerInfo
-	EventType     EventType
-}
-
-func NewDockerConnector() *DockerConnector {
+func NewDockerConnector() *Connector {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
 
-	return &DockerConnector{
+	return &Connector{
 		dockerClient: cli,
 		ctx:          ctx,
 	}
 }
 
-func (dc *DockerConnector) GetEventChannel() <-chan DockerEvent {
-	transformedEvents := make(chan DockerEvent)
+func (dc *Connector) GetRoutes() ([]caddy.Route, error) {
+	containers, err := dc.GetAllContainersWithActiveLabel()
+	if err != nil {
+		return nil, err
+	}
+
+	routes := make([]caddy.Route, 0, len(containers))
+	for _, container := range containers {
+		reverseProxyRoute := caddy.NewReverseProxyRoute(container.Domain, container.Upstream)
+		routes = append(routes, reverseProxyRoute)
+	}
+	return routes, nil
+}
+
+func (dc *Connector) GetEventChannel() <-chan caddy.LifecycleEvent {
+	transformedEvents := make(chan caddy.LifecycleEvent)
 
 	go func() {
 		defer close(transformedEvents)
@@ -91,7 +77,7 @@ func (dc *DockerConnector) GetEventChannel() <-chan DockerEvent {
 				}
 				transformedEvents <- *transformedEvent
 			case err := <-err:
-				log.Println("Error listening to docker events:", err)
+				slog.Error("Error listening to docker events", "error", err)
 			case <-dc.ctx.Done():
 				return
 			}
@@ -101,17 +87,17 @@ func (dc *DockerConnector) GetEventChannel() <-chan DockerEvent {
 	return transformedEvents
 }
 
-func transformDockerEvent(rawEvent eventtypes.Message) *DockerEvent {
+func transformDockerEvent(rawEvent eventtypes.Message) *caddy.LifecycleEvent {
 	if rawEvent.Type != eventtypes.ContainerEventType || rawEvent.Actor.Attributes[activeLabel] != "true" {
 		return nil
 	}
 
-	var eventType EventType
+	var eventType caddy.EventType
 	switch rawEvent.Action {
 	case eventtypes.ActionStart:
-		eventType = ContainerStartEvent
+		eventType = caddy.StartEvent
 	case eventtypes.ActionDie:
-		eventType = ContainerDieEvent
+		eventType = caddy.DieEvent
 	default:
 		return nil
 	}
@@ -119,41 +105,41 @@ func transformDockerEvent(rawEvent eventtypes.Message) *DockerEvent {
 	portStr := rawEvent.Actor.Attributes[portLabel]
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		log.Printf("Error converting docker container port '%s' to int\n", portStr)
+		slog.Error("Error converting docker container port to int", "port", portStr)
 		return nil
 	}
 
-	containerInfo := ContainerInfo{
-		Port:          port,
-		Domain:        rawEvent.Actor.Attributes[domainLabel],
-		ContainerName: rawEvent.Actor.Attributes["name"],
+	containerInfo := caddy.EndpointInfo{
+		Port:     port,
+		Domain:   rawEvent.Actor.Attributes[domainLabel],
+		Upstream: ":" + portStr,
 	}
 
-	return &DockerEvent{
-		ContainerInfo: containerInfo,
-		EventType:     eventType,
+	return &caddy.LifecycleEvent{
+		ContainerInfo:      containerInfo,
+		LifeCycleEventType: eventType,
 	}
 }
 
-func (dc *DockerConnector) GetAllContainersWithActiveLabel() ([]ContainerInfo, error) {
+func (dc *Connector) GetAllContainersWithActiveLabel() ([]caddy.EndpointInfo, error) {
 	containers, err := dc.dockerClient.ContainerList(dc.ctx, containertypes.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var activeContainers []ContainerInfo
+	var activeContainers []caddy.EndpointInfo
 	for _, container := range containers {
 		if container.Labels[activeLabel] == "true" {
 			port, err := strconv.Atoi(container.Labels[portLabel])
 			if err != nil {
-				log.Println("Error converting port to int")
+				slog.Error("Error converting port to int")
 				continue
 			}
 
-			containerInfo := ContainerInfo{
-				Port:          port,
-				Domain:        container.Labels[domainLabel],
-				ContainerName: container.Names[0],
+			containerInfo := caddy.EndpointInfo{
+				Port:     port,
+				Domain:   container.Labels[domainLabel],
+				Upstream: ":" + container.Labels[portLabel],
 			}
 
 			activeContainers = append(activeContainers, containerInfo)

@@ -5,35 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
-	"strconv"
 )
 
 type Connector struct {
-	Url string
+	Config *CaddyConfig
 }
 
-func NewConnector(url string) *Connector {
+func NewConnector(caddyConfig CaddyConfig) *Connector {
 	return &Connector{
-		Url: url,
+		Config: &caddyConfig,
 	}
 }
 
 func (c *Connector) GetCaddyConfig() (*Config, error) {
-	resp, err := http.Get(c.Url + "/config/")
+	url := c.Config.CaddyAdminUrl + "/config/"
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
+	}
 
 	responseContent, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	// if content is "null", return nil
+	// if the content is "null", return nil
 	if len(responseContent) == 0 || string(responseContent) == "null\n" {
-		return nil, fmt.Errorf("no caddy config found")
+		return nil, fmt.Errorf("no caddy Config found")
 	}
 
 	caddyConfig, err := UnmarshalCaddyConfig(responseContent)
@@ -46,20 +51,48 @@ func (c *Connector) GetCaddyConfig() (*Config, error) {
 func (c *Connector) CreateCaddyConfig() error {
 	config := Config{}
 	config.Apps.HTTP.Servers = make(map[string]Server, 1)
-	config.Apps.HTTP.Servers["srv0"] = Server{
+
+	server := Server{
 		Listen: []string{":443", ":80"},
 		Routes: []Route{},
 	}
-	body, err := json.Marshal(config)
+
+	config.Apps.HTTP.Servers["srv0"] = server
+
+	if c.Config.TLSConfig.Manual {
+		slog.Info("Using manual TLS configuration",
+			"certFilePath", c.Config.TLSConfig.CertFilePath,
+			"keyFilePath", c.Config.TLSConfig.KeyFilePath)
+
+		config.Apps.TLS = &TLSApp{
+			Certificates: Certificates{
+				LoadFiles: []LoadFile{
+					{
+						Certificate: c.Config.TLSConfig.CertFilePath,
+						Key:         c.Config.TLSConfig.KeyFilePath,
+					},
+				},
+			},
+		}
+	}
+
+	url := c.Config.CaddyAdminUrl + "/load"
+	bodyContent, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(c.Url+"/load", "application/json", bytes.NewReader(body))
+	resp, err := http.Post(url, "application/json", bytes.NewReader(bodyContent))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("request to %s failed with status code %d", url, resp.StatusCode)
+	}
+
+	slog.Info("Created Caddy config successfully")
 	return nil
 }
 
@@ -69,7 +102,8 @@ func (c *Connector) SetRoutes(routes []Route) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, c.Url+"/config/apps/http/servers/srv0/routes/", bytes.NewReader(reqBody))
+	url := c.Config.CaddyAdminUrl + "/config/apps/http/servers/srv0/routes/"
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return err
 	}
@@ -79,16 +113,18 @@ func (c *Connector) SetRoutes(routes []Route) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println(resp.Status, string(respBody))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
+	defer resp.Body.Close()
 
 	return nil
 }
 
 // NewReverseProxyRoute creates a reverse proxy forwarding accesses to incomingDomain to upstreamPort
-func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
+func NewReverseProxyRoute(incomingDomain string, upstreamAddr string) Route {
 	return Route{
 		Handle: []Handle{
 			{
@@ -101,7 +137,7 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 								Handler: "reverse_proxy",
 								Upstreams: []Upstream{
 									{
-										Dial: ":" + strconv.Itoa(upstreamPort),
+										Dial: upstreamAddr,
 									},
 								},
 							},
@@ -116,4 +152,70 @@ func NewReverseProxyRoute(incomingDomain string, upstreamPort int) Route {
 			},
 		},
 	}
+}
+
+func NewExternalReverseProxyRoute(incomingDomain string, upstream string, tls bool) Route {
+	upstreamHandle := Handle{
+		Handler: "reverse_proxy",
+		Upstreams: []Upstream{
+			{
+				Dial: upstream,
+			},
+		},
+	}
+
+	if tls {
+		upstreamHandle.Transport = &Transport{
+			Protocol: "http",
+			TLS:      &TransportTLS{},
+		}
+	}
+
+	return Route{
+		Handle: []Handle{
+			{
+				Handler: "subroute",
+				Routes: []Route{
+					{
+						Match: nil,
+						Handle: []Handle{
+							upstreamHandle,
+						},
+					},
+				},
+			},
+		},
+		Match: []Match{
+			{
+				Host: []string{incomingDomain},
+			},
+		},
+	}
+}
+
+func New404FallbackRoute() Route {
+	return Route{
+		Match: []Match{{}}, // match everything
+		Handle: []Handle{
+			{
+				Handler:    "static_response",
+				StatusCode: 404,
+				Body:       "Not Found",
+			},
+		},
+	}
+}
+
+func (c *Connector) PrintCurrentConfig() error {
+	config, err := c.GetCaddyConfig()
+	if err != nil {
+		return err
+	}
+
+	converted, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Config: %s\n", string(converted))
+	return nil
 }
