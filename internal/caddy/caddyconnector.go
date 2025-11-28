@@ -7,13 +7,15 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+
+	"github.com/jaku01/caddyservicediscovery/internal/discovery"
 )
 
 type Connector struct {
-	Config *CaddyConfig
+	Config *discovery.CaddyConfig
 }
 
-func NewConnector(caddyConfig CaddyConfig) *Connector {
+func NewConnector(caddyConfig discovery.CaddyConfig) *Connector {
 	return &Connector{
 		Config: &caddyConfig,
 	}

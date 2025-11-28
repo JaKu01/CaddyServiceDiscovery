@@ -5,9 +5,11 @@ import (
 	"log/slog"
 
 	"github.com/jaku01/caddyservicediscovery/internal/caddy"
+	"github.com/jaku01/caddyservicediscovery/internal/discovery"
+	"github.com/jaku01/caddyservicediscovery/internal/provider"
 )
 
-func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector caddy.ServiceDiscoveryProvider) error {
+func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector provider.ServiceDiscoveryProvider) error {
 	slog.Info("Starting manager for service discovery")
 	slog.Info("Using caddy admin api", "url", caddyConnector.Config.CaddyAdminUrl)
 
@@ -28,7 +30,7 @@ func StartServiceDiscovery(caddyConnector *caddy.Connector, providerConnector ca
 	return nil
 }
 
-func handleLifecycleEvents(providerConnector caddy.ServiceDiscoveryProvider, routes []caddy.Route, caddyConnector *caddy.Connector) error {
+func handleLifecycleEvents(providerConnector provider.ServiceDiscoveryProvider, routes []caddy.Route, caddyConnector *caddy.Connector) error {
 	for lifecycleEvent := range providerConnector.GetEventChannel() {
 		slog.Info("Received lifecycle event", "content", lifecycleEvent)
 		err := updateRoutes(lifecycleEvent, &routes)
@@ -45,7 +47,7 @@ func handleLifecycleEvents(providerConnector caddy.ServiceDiscoveryProvider, rou
 	return nil
 }
 
-func configureInitialRoutes(providerConnector caddy.ServiceDiscoveryProvider, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
+func configureInitialRoutes(providerConnector provider.ServiceDiscoveryProvider, caddyConnector *caddy.Connector) ([]caddy.Route, error) {
 	routes, err := providerConnector.GetRoutes()
 	if err != nil {
 		return nil, err
@@ -71,9 +73,9 @@ func configureInitialRoutes(providerConnector caddy.ServiceDiscoveryProvider, ca
 	return routes, nil
 }
 
-func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) error {
+func updateRoutes(lifecycleEvent provider.LifecycleEvent, routes *[]caddy.Route) error {
 	switch lifecycleEvent.LifeCycleEventType {
-	case caddy.StartEvent:
+	case provider.StartEvent:
 		slog.Info("Adding route", "detail", lifecycleEvent.ContainerInfo)
 		// Deduplicate
 		for _, r := range *routes {
@@ -87,7 +89,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 		))
 		return nil
 
-	case caddy.DieEvent:
+	case provider.DieEvent:
 		slog.Info("Removing route", "detail", lifecycleEvent.ContainerInfo)
 		newRoutes := make([]caddy.Route, 0, len(*routes))
 		removed := false
@@ -108,7 +110,7 @@ func updateRoutes(lifecycleEvent caddy.LifecycleEvent, routes *[]caddy.Route) er
 	return fmt.Errorf("unknown lifecycle event")
 }
 
-func isSameRoute(r caddy.Route, info caddy.EndpointInfo) bool {
+func isSameRoute(r caddy.Route, info provider.EndpointInfo) bool {
 	// Host
 	if len(r.Match) == 0 || len(r.Match[0].Host) == 0 {
 		return false
@@ -127,7 +129,7 @@ func isSameRoute(r caddy.Route, info caddy.EndpointInfo) bool {
 	return rp.Upstreams[0].Dial == info.Upstream
 }
 
-func hasManualRoute(routes []caddy.Route, route caddy.ManualRoute) bool {
+func hasManualRoute(routes []caddy.Route, route discovery.ManualRoute) bool {
 	for _, r := range routes {
 		if r.Match[0].Host[0] == route.Domain {
 			return true
