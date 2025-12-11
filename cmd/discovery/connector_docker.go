@@ -3,11 +3,11 @@
 package main
 
 import (
-	"github.com/jaku01/caddyservicediscovery/internal/caddy"
-	"github.com/jaku01/caddyservicediscovery/internal/docker"
+	"github.com/jaku01/caddyservicediscovery/internal/provider"
+	"github.com/jaku01/caddyservicediscovery/internal/provider/docker"
 )
 
 // Returns a Docker connector when built with the 'docker' tag.
-func newServiceDiscoveryProviderConnector() (caddy.ServiceDiscoveryProvider, error) {
+func newServiceDiscoveryProviderConnector() (provider.ServiceDiscoveryProvider, error) {
 	return docker.NewDockerConnector(), nil
 }
